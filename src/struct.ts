@@ -43,14 +43,41 @@ export class LengthValidator extends FieldValidator {
     }
 }
 
-export class Struct implements Validator {
+abstract class Sanitizer<T> {
+    field: string;
+    constructor(field: string) {
+        this.field = field;
+    }
+    abstract sanitize(data: any): T;
+}
+export class StringField extends Sanitizer<string> {
+    sanitize(data: any) {
+        return String(data[this.field]||'');
+    }
+}
+export class BooleanField extends Sanitizer<boolean> {
+    sanitize(data: any) {
+        return !!data[this.field];
+    }
+}
+
+export class Struct {
+    sanitizers: Sanitizer<any>[];
     validators: Validator[];
 
-    constructor(validators: Validator[]) {
+    constructor(sanitizers: Sanitizer<any>[], validators: Validator[]) {
+        this.sanitizers = sanitizers;
         this.validators = validators;
     }
+    sanitize(data: any): any {
+        return this.sanitizers.reduce((acc, sanitizer)=>{
+            acc[sanitizer.field] = sanitizer.sanitize(data);
+            return acc;
+        }, {} as any);
+    }
     validate(data: any) {
+        data = this.sanitize(data);
         return this.validators.reduce(
-            (acc, field)=>field.validate(data, acc), new Report());
+            (acc, validator)=>validator.validate(data, acc), new Report());
     }
 }

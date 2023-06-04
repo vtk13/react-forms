@@ -1,25 +1,15 @@
 import React, {FormEvent, useEffect, useState} from 'react';
 import {createRoot} from 'react-dom/client';
-import {Report} from './struct';
 import {Settings, SettingsStruct} from './settings';
+import {FieldWrap, FormRow} from './uikit';
 
-const Errors = (props: {report: Report, field: string})=>{
-    let errors = props.report.getErrors(props.field);
-    if (!errors?.length)
-        return null;
-    return <span style={{color: 'red'}}>
-        {errors.map(err=><span key={err}>{err}<br/></span>)}
-    </span>;
-};
-
-type SettingsFormProps = {
-    data?: Settings;
+const SettingsForm = (props: {
+    settings?: Settings;
     onSubmit: (data: Partial<Settings>)=>void;
     onCancel: ()=>void;
-};
-const SettingsForm = (props: SettingsFormProps)=>{
-    let [firstname, setFirstname] = useState(props.data?.firstname||'');
-    let [lastname, setLastname] = useState(props.data?.lastname||'');
+})=>{
+    let [firstname, setFirstname] = useState(props.settings?.firstname||'');
+    let [lastname, setLastname] = useState(props.settings?.lastname||'');
 
     let settings = new SettingsStruct();
     let report = settings.validate({firstname, lastname});
@@ -28,54 +18,64 @@ const SettingsForm = (props: SettingsFormProps)=>{
         e.preventDefault();
         props.onSubmit({firstname, lastname});
     };
-    let sRow = {marginBottom: '10px'};
     return <form onSubmit={submit}>
-        {!!props.data &&
-            <div style={sRow}>
-                State: {props.data.enabled ? 'enabled': 'disabled'}
-            </div>}
-        <div style={sRow}>
-            <label>
-                First name:<br/>
-                <Errors report={report} field="firstname"/>
+        {!!props.settings && <FormRow>
+            State: {props.settings.enabled ? 'enabled': 'disabled'}
+        </FormRow>}
+        <FormRow>
+            <FieldWrap name="firstname" label="First name" report={report}>
                 <input type="text" name="firstname" value={firstname}
                     onChange={e=>setFirstname(e.currentTarget.value)}/>
-            </label>
-        </div>
-        <div style={sRow}>
-            <label>
-                Last name:<br/>
-                <Errors report={report} field="lastname"/>
+            </FieldWrap>
+        </FormRow>
+        <FormRow>
+            <FieldWrap name="lastname" label="Last name" report={report}>
                 <input type="text" name="lastname" value={lastname}
                     onChange={e=>setLastname(e.currentTarget.value)}/>
-            </label>
-        </div>
-        <div style={sRow}>
+            </FieldWrap>
+        </FormRow>
+        <FormRow>
             <button type="submit" disabled={!report.isValid()}>
-                {props.data ? 'Save' : 'Create'}
+                {props.settings ? 'Save' : 'Create'}
             </button>
             <button type="button" onClick={props.onCancel}>Cancel</button>
-        </div>
+        </FormRow>
     </form>;
 };
 
-const MODES = {
-    NONE: 'none',
-    CREATE: 'create',
-    EDIT: 'edit',
+const Controls = (props: {
+    settings?: Settings;
+    create: ()=>void;
+    edit: ()=>void;
+    remove: ()=>void;
+    switchEnable: ()=>void;
+})=>{
+    let sUl:  React.CSSProperties = {display: 'flex', flexDirection: 'row',
+        listStyleType: 'none', padding: 0};
+    let sIl = {padding: '0 5px', cursor: 'pointer',
+        textDecoration: 'underline'};
+    if (!props.settings)
+        return <ul style={sUl}>
+            <li style={sIl} onClick={props.create}>Create</li>
+        </ul>;
+    return <ul style={sUl}>
+        <li style={sIl} onClick={props.edit}>Edit</li>
+        <li style={sIl} onClick={props.switchEnable}>
+            {props.settings.enabled ? 'Turn off' : 'Turn on'}
+        </li>
+        <li style={sIl} onClick={props.remove}>Delete</li>
+    </ul>;
 };
-type SaveOpt = {
-    create?: boolean;
-};
+
 const Root = ()=>{
     let [inited, setInited] = useState(false);
-    let [mode, setMode] = useState(MODES.NONE);
-    let [data, setData] = useState<Settings|undefined>();
+    let [showForm, setShowForm] = useState(false);
+    let [settings, setSettings] = useState<Settings|undefined>();
     let [loading, setLoading] = useState(false);
     useEffect(()=>{
         fetch('/settings').then(async res=>{
             if (res.status==200)
-                setData(await res.json());
+                setSettings(await res.json());
             setInited(true);
         });
     }, []);
@@ -83,79 +83,56 @@ const Root = ()=>{
     if (!inited)
         return <p>loading...</p>;
 
-    let sUl:  React.CSSProperties = {display: 'flex', flexDirection: 'row',
-        listStyleType: 'none', padding: 0};
-    let sIl = {padding: '0 5px'};
-    let create = (e: React.MouseEvent<HTMLAnchorElement>)=>{
-        e.preventDefault();
+    let create = ()=>{
         setLoading(true);
         fetch('/settings').then(async res=>{
             if (res.status!=204)
                 throw new Error('Already created');
             setLoading(false);
-            setMode(MODES.CREATE);
+            setShowForm(true);
         });
     }
-    let edit = (e: React.MouseEvent<HTMLAnchorElement>)=>{
-        e.preventDefault();
+    let edit = ()=>{
         setLoading(true);
         fetch('/settings').then(async res=>{
             if (res.status!=200)
                 throw new Error('Failed to load settings');
-            setData(await res.json());
+            setSettings(await res.json());
             setLoading(false);
-            setMode(MODES.EDIT);
+            setShowForm(true);
         });
     }
-    let save = async (upd: Partial<Settings>, opt?: SaveOpt)=>{
-        if (opt?.create)
+    let save = async (upd: Partial<Settings>)=>{
+        if (!settings)
             upd.enabled = true;
         let res = await fetch('/settings', {
-            method: opt?.create ? 'POST' : 'PUT',
+            method: settings ? 'PUT' : 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(Object.assign({}, data, upd)),
+            body: JSON.stringify(Object.assign({}, settings, upd)),
         });
         if (res.status!=200)
             throw new Error('Failed to save settings');
-        setData(await res.json());
-        setMode(MODES.NONE);
+        setSettings(await res.json());
+        setShowForm(false);
     };
-    let remove = async (e: React.MouseEvent<HTMLAnchorElement>)=>{
-        e.preventDefault();
+    let remove = async ()=>{
         let res = await fetch('/settings', {method: 'DELETE'});
         if (res.status!=204)
             throw new Error('Failed to remove settings');
-        setData(undefined);
-        setMode(MODES.NONE);
+        setSettings(undefined);
+        setShowForm(false);
     };
-    let switchEnable = async (e: React.MouseEvent<HTMLAnchorElement>)=>{
-        e.preventDefault();
-        await save({enabled: !data!.enabled});
+    let switchEnable = async ()=>{
+        await save({enabled: !settings!.enabled});
     };
-    let head, form, loader;
 
-    head = <ul style={sUl}>
-        {!data && <li style={sIl}><a href="#" onClick={create}>Create</a></li>}
-        {data && <li style={sIl}><a href="#" onClick={edit}>Edit</a></li>}
-        {data && !data.enabled && <li style={sIl}>
-            <a href="#" onClick={switchEnable}>Turn on</a>
-        </li>}
-        {data && !!data.enabled && <li style={sIl}>
-            <a href="#" onClick={switchEnable}>Turn off</a>
-        </li>}
-        {data && <li style={sIl}><a href="#" onClick={remove}>Delete</a></li>}
-    </ul>;
-    if (loading)
-        loader = <p>loading...</p>;
-    if (mode==MODES.CREATE) {
-        form = <SettingsForm onSubmit={data=>save(data, {create: true})}
-            onCancel={()=>setMode(MODES.NONE)}/>;
-    }
-    if (mode==MODES.EDIT) {
-        form = <SettingsForm data={data} onSubmit={save}
-            onCancel={()=>setMode(MODES.NONE)}/>;
-    }
-    return <>{head}{loader}{form}</>;
+    return <>
+        <Controls settings={settings} create={create} edit={edit}
+            remove={remove} switchEnable={switchEnable}/>
+        {loading && <p>loading...</p>}
+        {showForm && <SettingsForm settings={settings} onSubmit={save}
+            onCancel={()=>setShowForm(false)}/>}
+    </>;
 };
 
 createRoot(document.getElementById('root')!).render(<Root/>);

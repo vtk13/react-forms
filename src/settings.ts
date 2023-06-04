@@ -1,4 +1,4 @@
-import {LengthValidator, Struct} from './struct';
+import {BooleanField, LengthValidator, StringField, Struct} from './struct';
 
 export class Settings {
     firstname: string = '';
@@ -11,6 +11,10 @@ export class Settings {
 export class SettingsStruct extends Struct {
     constructor() {
         super([
+            new StringField('firstname'),
+            new StringField('lastname'),
+            new BooleanField('enabled'),
+        ], [
             new LengthValidator('firstname', 10, 3),
             new LengthValidator('lastname', 10, 3),
         ]);

@@ -2,7 +2,7 @@ import express from 'express';
 import bodyParser from 'body-parser';
 
 function valueCrud() {
-    let value = null;
+    let value: any = null;
     let router = express.Router();
     router.get('/', (req, res)=>{
         if (!value)
@@ -27,5 +27,5 @@ function valueCrud() {
 const app = express();
 app.use(bodyParser.json());
 app.use('/settings', valueCrud());
-app.use(express.static('build'));
+app.use(express.static('build/pub'));
 app.listen(3000, ()=>console.log('Listening on http://localhost:3000/'));

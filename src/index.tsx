@@ -1,11 +1,22 @@
-import React, {useEffect, useState} from 'react';
+import React, {FormEvent, useEffect, useState} from 'react';
 import {createRoot} from 'react-dom/client';
 
-const SettingsForm = props=>{
+type FormData = {
+    firstname: string;
+    lastname: string;
+    enabled?: boolean;
+}
+
+type SettingsFormProps = {
+    data?: FormData;
+    onSubmit: (data: FormData)=>void;
+    onCancel: ()=>void;
+};
+const SettingsForm = (props: SettingsFormProps)=>{
     let [firstname, setFirstname] = useState(props.data?.firstname||'');
     let [lastname, setLastname] = useState(props.data?.lastname||'');
     let existed = Object.keys(props.data||{}).length>0;
-    let submit = e=>{
+    let submit = (e: FormEvent)=>{
         e.preventDefault();
         props.onSubmit({firstname, lastname});
     };
@@ -41,10 +52,13 @@ const MODES = {
     CREATE: 'create',
     EDIT: 'edit',
 };
+type SaveOpt = {
+    create?: boolean;
+};
 const Root = ()=>{
     let [inited, setInited] = useState(false);
     let [mode, setMode] = useState(MODES.NONE);
-    let [data, setData] = useState();
+    let [data, setData] = useState<FormData|undefined>();
     let [loading, setLoading] = useState(false);
     useEffect(()=>{
         fetch('/settings').then(async res=>{
@@ -57,10 +71,10 @@ const Root = ()=>{
     if (!inited)
         return <p>loading...</p>;
 
-    let sUl = {display: 'flex', flexDirection: 'row', listStyleType: 'none',
-        padding: 0};
+    let sUl:  React.CSSProperties = {display: 'flex', flexDirection: 'row',
+        listStyleType: 'none', padding: 0};
     let sIl = {padding: '0 5px'};
-    let create = e=>{
+    let create = (e: React.MouseEvent<HTMLAnchorElement>)=>{
         e.preventDefault();
         setLoading(true);
         fetch('/settings').then(async res=>{
@@ -70,7 +84,7 @@ const Root = ()=>{
             setMode(MODES.CREATE);
         });
     }
-    let edit = e=>{
+    let edit = (e: React.MouseEvent<HTMLAnchorElement>)=>{
         e.preventDefault();
         setLoading(true);
         fetch('/settings').then(async res=>{
@@ -81,7 +95,7 @@ const Root = ()=>{
             setMode(MODES.EDIT);
         });
     }
-    let save = async (upd, opt)=>{
+    let save = async (upd: Partial<FormData>, opt?: SaveOpt)=>{
         if (opt?.create)
             upd.enabled = true;
         let res = await fetch('/settings', {
@@ -94,17 +108,17 @@ const Root = ()=>{
         setData(await res.json());
         setMode(MODES.NONE);
     };
-    let remove = async e=>{
+    let remove = async (e: React.MouseEvent<HTMLAnchorElement>)=>{
         e.preventDefault();
         let res = await fetch('/settings', {method: 'DELETE'});
         if (res.status!=204)
             throw new Error('Failed to remove settings');
-        setData(null);
+        setData(undefined);
         setMode(MODES.NONE);
     };
-    let switchEnable = async e=>{
+    let switchEnable = async (e: React.MouseEvent<HTMLAnchorElement>)=>{
         e.preventDefault();
-        await save({enabled: !data.enabled});
+        await save({enabled: !data!.enabled});
     };
     let head, form, loader;
 
@@ -132,4 +146,4 @@ const Root = ()=>{
     return <>{head}{loader}{form}</>;
 };
 
-createRoot(document.getElementById('root')).render(<Root/>);
+createRoot(document.getElementById('root')!).render(<Root/>);

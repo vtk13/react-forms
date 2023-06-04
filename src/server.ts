@@ -12,19 +12,19 @@ function valueCrud() {
         res.json(settings);
     });
     router.post('/', (req, res)=>{
+        console.log('POST', struct.sanitize(req.body));
         let report = struct.validate(req.body);
         if (!report.isValid())
             return void res.status(400).json(report.errors);
         settings = struct.sanitize(req.body);
-        console.log('POST', settings);
         res.json(settings);
     });
     router.put('/', (req, res)=>{
+        console.log('PUT', struct.sanitize(req.body));
         let report = struct.validate(req.body);
         if (!report.isValid())
             return void res.status(400).json(report.errors);
         settings = struct.sanitize(req.body);
-        console.log('PUT', settings);
         res.json(settings);
     });
     router.delete('/', (req, res)=>{

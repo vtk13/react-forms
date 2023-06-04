@@ -1,21 +1,29 @@
 import React, {FormEvent, useEffect, useState} from 'react';
 import {createRoot} from 'react-dom/client';
+import {Report} from './struct';
+import {Settings, SettingsStruct} from './settings';
 
-type FormData = {
-    firstname: string;
-    lastname: string;
-    enabled?: boolean;
-}
+const Errors = (props: {report: Report, field: string})=>{
+    let errors = props.report.getErrors(props.field);
+    if (!errors?.length)
+        return null;
+    return <span style={{color: 'red'}}>
+        {errors.map(err=><span key={err}>{err}<br/></span>)}
+    </span>;
+};
 
 type SettingsFormProps = {
-    data?: FormData;
-    onSubmit: (data: FormData)=>void;
+    data?: Settings;
+    onSubmit: (data: Partial<Settings>)=>void;
     onCancel: ()=>void;
 };
 const SettingsForm = (props: SettingsFormProps)=>{
     let [firstname, setFirstname] = useState(props.data?.firstname||'');
     let [lastname, setLastname] = useState(props.data?.lastname||'');
-    let existed = Object.keys(props.data||{}).length>0;
+
+    let settings = new SettingsStruct();
+    let report = settings.validate({firstname, lastname});
+
     let submit = (e: FormEvent)=>{
         e.preventDefault();
         props.onSubmit({firstname, lastname});
@@ -29,6 +37,7 @@ const SettingsForm = (props: SettingsFormProps)=>{
         <div style={sRow}>
             <label>
                 First name:<br/>
+                <Errors report={report} field="firstname"/>
                 <input type="text" name="firstname" value={firstname}
                     onChange={e=>setFirstname(e.currentTarget.value)}/>
             </label>
@@ -36,12 +45,15 @@ const SettingsForm = (props: SettingsFormProps)=>{
         <div style={sRow}>
             <label>
                 Last name:<br/>
+                <Errors report={report} field="lastname"/>
                 <input type="text" name="lastname" value={lastname}
                     onChange={e=>setLastname(e.currentTarget.value)}/>
             </label>
         </div>
         <div style={sRow}>
-            <button type="submit">Save</button>
+            <button type="submit" disabled={!report.isValid()}>
+                {props.data ? 'Save' : 'Create'}
+            </button>
             <button type="button" onClick={props.onCancel}>Cancel</button>
         </div>
     </form>;
@@ -58,7 +70,7 @@ type SaveOpt = {
 const Root = ()=>{
     let [inited, setInited] = useState(false);
     let [mode, setMode] = useState(MODES.NONE);
-    let [data, setData] = useState<FormData|undefined>();
+    let [data, setData] = useState<Settings|undefined>();
     let [loading, setLoading] = useState(false);
     useEffect(()=>{
         fetch('/settings').then(async res=>{
@@ -95,7 +107,7 @@ const Root = ()=>{
             setMode(MODES.EDIT);
         });
     }
-    let save = async (upd: Partial<FormData>, opt?: SaveOpt)=>{
+    let save = async (upd: Partial<Settings>, opt?: SaveOpt)=>{
         if (opt?.create)
             upd.enabled = true;
         let res = await fetch('/settings', {
